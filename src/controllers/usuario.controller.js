@@ -140,13 +140,15 @@ function EliminarUsuario(req, res) {
 
   Usuario.findOne({ _id: idUsua }, (err, usuarioencotrado) => {
 
-    if (req.user.rol !== "ROL_ADMIN") {
+    if (req.user.rol !== "ROL_ADMIN") { // verirficamos el rol si es admin
 
-      if (req.user.sub !== idUsua) {
+
+      if (req.user.sub !== idUsua) { // verificamos que el id sea igual a id del cliente
 
         return res.status(500).send({ mensaje: 'no tienes permiso de eliminar este usuario' });
 
-      } else {
+      } else { // else del id igaulid de cliente
+
         Usuario.findByIdAndDelete(req.user.sub, (err, UsuarioEliminado) => {
           if (err) return res.status(500).send({ mensaje: 'Error en la peticion' });
           if (!UsuarioEliminado) return res.status(500)
@@ -156,9 +158,9 @@ function EliminarUsuario(req, res) {
 
         })
       }
-    } else {
+    } else { // else de verificacion de rol admin
 
-      if (usuarioencotrado.rol !== "ROL_ADMIN") {
+      if (usuarioencotrado.rol !== "ROL_ADMIN") { // aqui verificamos si el rol es de un admin si se deasea eliminar
 
         Usuario.findByIdAndDelete(idUsua, (err, UsuarioEliminado) => {
           if (err) return res.status(500).send({ mensaje: 'Error en la peticion' });
@@ -188,51 +190,278 @@ function agregarCarrito(req, res) {
     if (!productoEncontrado) return res.status(500).send
       ({ mensaje: 'error  al buscar el producto' });
 
-    Usuario.findOne({ _id: req.user.sub, "carrito.nombreProducto": parametros.nombreProducto }, (err, usuarioEncontrado) => {
+    Usuario.findOne({ _id: req.user.sub, carrito: { $elemMatch: { nombreProducto: parametros.nombreProducto } } }, (err, usuarioEncontrado) => {
       if (err) return res.status(500).send({ mensaje: 'Error en la peticion' });
 
-      if (parametros.cantidad && parametros.nombreProducto) {
+      // if(!usuarioEncontrado) return res.status(500).send({ mensaje: 'vacio' });
 
-        if (!usuarioEncontrado) {
+      if (parametros.eliminar == "si") {
 
-          Usuario.findByIdAndUpdate(req.user.sub, {
-            $push: {
-              carrito: {
-                nombreProducto: parametros.nombreProducto,
-                cantidadComprada: parametros.cantidad,
-                precioUnitario: productoEncontrado.precio, subTotal: parametros.cantidad * productoEncontrado.precio
-              }
+        Usuario.findOneAndUpdate({ _id: req.user.sub, carrito: { $elemMatch: { nombreProducto: parametros.nombreProducto } } }
+          , { $pull: { carrito: { nombreProducto: parametros.nombreProducto } } }, { new: true }, (err, NombreCarritoEliminado) => {
+            if (err) return res.status(500).send({ mensaje: 'error en la peticion del eliminar el carrito' });
+            if (!NombreCarritoEliminado) return res.status(500).send({ mensaje: 'error al eliminar el producto al carrito' })
+
+
+            let totallocal = 0;
+            let subTotalLocal = [];
+            let cantidaActualiza = 0;
+            for (let i = 0; i < NombreCarritoEliminado.carrito.length; i++) {
+
+              subTotalLocal.push(NombreCarritoEliminado.carrito[i].cantidadComprada * NombreCarritoEliminado.carrito[i].precioUnitario);
             }
-          }, { new: true },
-            (err, productoAgregadoCarrito) => {
-              if (err) return res.status(500).send({ mensaje: 'error en la peticion del agregar el carrito' });
-              if (!productoAgregadoCarrito) return res.status(500).send({ mensaje: 'error al agregar el producto al carrito' })
 
-              let totallocal = 0;
-              let subTotalLocal = 0;
-              for (let i = 0; i < productoAgregadoCarrito.carrito.length; i++) {
-                subTotalLocal = productoAgregadoCarrito.carrito[i].cantidadComprada * productoAgregadoCarrito.carrito[i].precioUnitario;
-                totallocal += subTotalLocal;
-              }
+            for (let i = 0; i < subTotalLocal.length; i++) {
+              totallocal += subTotalLocal[i];
+            }
 
-              Usuario.findByIdAndUpdate(req.user.sub, { subTotal: subTotalLocal, totalCArrito: totallocal }, { new: true },
-                (err, totalActualizado) => {
-                  if (err) return res.status(500).send({ mensaje: 'error en la peticion Totla carrito ' });
-                  if (!totalActualizado) return res.status(500).send({ mensaje: 'error al actualiaar el total del carrito' });
+            Usuario.findOneAndUpdate({ _id: req.user.sub },
+              { totalCArrito: totallocal }, { new: true },
+              (err, totalActualizado) => {
+                if (err) return res.status(500).send({ mensaje: 'error en la peticion Totla carrito ' });
+                if (!totalActualizado) return res.status(500).send({ mensaje: 'error al actualiaar el total del carrito' });
 
-                  return res.status(200).send({ usuario: totalActualizado })
+                return res.status(200).send({ carritoActualizadoDespuesEliminar: totalActualizado })
+
+              })
+
+          })
+
+      } else { // no deseo eliminar ningun producto de la tienda
+
+
+        if (parametros.cantidad && parametros.nombreProducto) { //parametros obligatorios
+          if (parametros.cantidad > 0) { //no pueden mandar numeros negativos o el cero
+
+            if (!usuarioEncontrado) {
+
+              Usuario.findByIdAndUpdate(req.user.sub, {
+                $push: {
+                  carrito: {
+                    nombreProducto: parametros.nombreProducto,
+                    cantidadComprada: parametros.cantidad,
+                    precioUnitario: productoEncontrado.precio, subTotal: parametros.cantidad * productoEncontrado.precio
+                  }
+                }
+              }, { new: true },
+                (err, productoAgregadoCarrito) => {
+                  if (err) return res.status(500).send({ mensaje: 'error en la peticion del agregar el carrito' });
+                  if (!productoAgregadoCarrito) return res.status(500).send({ mensaje: 'error al agregar el producto al carrito' })
+
+                  let totallocal = 0;
+                  let subTotalLocal = [];
+                  for (let i = 0; i < productoAgregadoCarrito.carrito.length; i++) {
+                    subTotalLocal.push(productoAgregadoCarrito.carrito[i].cantidadComprada * productoAgregadoCarrito.carrito[i].precioUnitario);
+                  }
+
+                  for (let i = 0; i < subTotalLocal.length; i++) {
+                    totallocal += subTotalLocal[i];
+                  }
+
+                  console.log(subTotalLocal);
+                  console.log(totallocal)
+
+                  Usuario.findByIdAndUpdate(req.user.sub, { totalCArrito: totallocal }, { new: true },
+                    (err, totalActualizado) => {
+                      if (err) return res.status(500).send({ mensaje: 'error en la peticion Totla carrito ' });
+                      if (!totalActualizado) return res.status(500).send({ mensaje: 'error al actualiaar el total del carrito' });
+
+                      return res.status(200).send({ usuario: totalActualizado })
+                    })
                 })
-            })
+
+            } else {
+
+              Usuario.findOneAndUpdate({ _id: req.user.sub, carrito: { $elemMatch: { nombreProducto: parametros.nombreProducto } } },
+                { $inc: { "carrito.$.cantidadComprada": parametros.cantidad } }, { new: true },
+                (err, Aumentodecantidad) => {
+
+                  if (!Aumentodecantidad) return res.status(500).send({ mensaje: 'error en al actualizar cantida de actualizar ' });
+
+                  if (err) return res.status(500).send({ mensaje: 'error en la petcion de actualizar ' });
+
+                  let totallocal = 0;
+                  let subTotalLocal = [];
+                  let cantidaActualiza = 0;
+                  for (let i = 0; i < Aumentodecantidad.carrito.length; i++) {
+                    cantidaActualiza = Aumentodecantidad.carrito[i].cantidadComprada;
+                    subTotalLocal.push(Aumentodecantidad.carrito[i].cantidadComprada * Aumentodecantidad.carrito[i].precioUnitario);
+                  }
+
+                  for (let i = 0; i < subTotalLocal.length; i++) {
+                    totallocal += subTotalLocal[i];
+                  }
+
+                  Usuario.findOneAndUpdate({ _id: req.user.sub, carrito: { $elemMatch: { nombreProducto: parametros.nombreProducto } } },
+                    { totalCArrito: totallocal, "carrito.$.subTotal": cantidaActualiza * productoEncontrado.precio }, { new: true },
+                    (err, totalActualizado) => {
+                      if (err) return res.status(500).send({ mensaje: 'error en la peticion Totla carrito ' });
+                      if (!totalActualizado) return res.status(500).send({ mensaje: 'error al actualiaar el total del carrito' });
+
+                      return res.status(200).send({ carrito: totalActualizado })
+
+                    })
+
+                })
+
+            }
+
+          } else {
+
+            console.log(parametros.cantidad + "numeros negativos o igual a cero")
+            return res.status(500).send({ mensaje: 'no puedes mandar numeros negativos o el cero ' });
+          }
 
         } else {
-          return res.status(500).send({ mensaje: 'ya esta registrado' });
+          res.status(500).send({ mensaje: 'debe mandar parametros obligatorios' });
         }
 
-      } else {
-        res.status(500).send({ mensaje: 'debe mandar parametros obligatorios' });
+
       }
+
+
+
+
+
     })
   })
+}
+
+const PdfkitConstruct = require('pdfkit-construct');
+const fs = require('fs');
+const doc = new PdfkitConstruct;
+
+function creaFactura(req, res) {
+  var idUsua = req.user.sub
+var hoy = new Date();
+var fecha = hoy.getDate() + '-' + ( hoy.getMonth() + 1 ) + '-' + hoy.getFullYear();
+var hora = hoy.getHours() + ':' + hoy.getMinutes() + ':' + hoy.getSeconds();
+var fechaYHora = fecha + ' ' + hora;
+
+console.log( fechaYHora)
+
+  Usuario.findOne({ _id: idUsua }, (err, usuarioEncontrado) => {
+
+
+
+
+
+    doc.pipe(fs.createWriteStream(`${usuarioEncontrado._id}.pdf`))
+
+
+    let count = 1;
+    const registros = usuarioEncontrado.carrito.map((prueba) => {
+      const registro = {
+
+        Num: count,
+        nombre: prueba.nombreProducto,
+        precio: prueba.precioUnitario,
+        cantidad: prueba.cantidadComprada,
+        subtotal: prueba.subTotal
+
+      }
+      count++;
+      return registro;
+    })
+  
+
+    doc.setDocumentHeader({
+      height: '22%',
+      marginLeft: 45,
+      marginRight: 45,
+    }, () => {
+
+      //doc.image(imagen, 450, 10, { scale: 0.20 })
+
+      doc.fontSize(35).text(' FACTURA', {
+        width: 420,
+        align: 'center'
+      })
+
+      doc.fontSize(15);
+
+      doc.text(`id : ${usuarioEncontrado._id}`, {
+        width: 420,
+        align: 'left'
+      })
+
+      doc.text(`Sr(a):${usuarioEncontrado.nombre}`, {
+        width: 420,
+        align: 'left'
+      })
+
+      doc.text(`fecha: ${fecha} `, {
+        width: 420,
+        align: 'left'
+      })
+
+      
+      doc.text(`Hora: ${hora} `, {
+        width: 420,
+        align: 'left'
+      })
+
+
+    });
+
+    doc.addTable(
+      [
+        { key: 'Num', label: 'Num', align: 'center' },
+        { key: 'nombre', label: 'Productos', align: 'center' },
+        { key: 'precio', label: 'Precio', align: 'center' },
+        { key: 'cantidad', label: 'Cantidad', align: 'center' },
+        { key: 'subtotal', label: 'Subtotal Q', align: 'center' }
+      ],
+      registros, {
+      border: null,
+      width: "fill_body",
+      striped: true,
+      stripedColors: ["#DADADA", "#B3D6FF"],
+      cellsPadding: 10,
+      headBackground: `#000000`,
+      headColor: '#FFFFFF',
+      marginLeft: 45,
+      marginRight: 45,
+      headFontSize: 10,
+      cellsFontSize: 10,
+      headAlign: 'center'
+    });
+
+    doc.setDocumentFooter({
+      height: '20%',
+      marginLeft: 45,
+      marginRight: 45,
+ 
+    }, () => {
+
+
+
+
+      doc.lineJoin('miter')
+      .rect(0, doc.footer.y, doc.page.width, doc.footer.options.heightNumber).fill("#128AB0");
+
+
+
+      doc.fill("#FFFFFF").fontSize(25).text(`Total: ${usuarioEncontrado.totalCArrito} Quetzales`, doc.footer.x + 110, doc.footer.y + 25, {
+        align: 'right',
+        
+      });
+
+    })
+
+
+    doc.render();
+
+    doc.end();
+
+
+    return res.status(200).send({ mensaje: 'creado pdf de cliente' + usuarioEncontrado._id });
+
+  })
+
+
+
+
 }
 
 
@@ -244,4 +473,5 @@ module.exports = {
   editarUsuario,
   EliminarUsuario,
   agregarCarrito,
+  creaFactura
 }

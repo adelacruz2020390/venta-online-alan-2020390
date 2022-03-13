@@ -1,6 +1,6 @@
 const Producto = require('../models/productos.model');
 const Categorias = require('../models/categorias.model');
-const { findOne } = require('../models/productos.model');
+
 
 function AgregarProductos(req, res) {
     var parametros = req.body;
@@ -96,7 +96,7 @@ function EliminarProductos(req, res) {
         return res.status(500).send({ mensaje: 'No tiene los permisos para eliminar productos.' });
     }
     
-    Productos.findByIdAndDelete(idProd, (err, productoEliminado)=>{
+    Producto.findByIdAndDelete(idProd, (err, productoEliminado)=>{
         if(err) return res.status(500).send({ mensaje: 'Error en la peticion' });
         if(!productoEliminado) return res.status(500)
             .send({ mensaje: 'Error al eliminar el producto' })

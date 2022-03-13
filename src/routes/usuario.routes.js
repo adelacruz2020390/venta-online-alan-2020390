@@ -10,5 +10,6 @@ api.post('/registrar' , UsuarioController.Registrar);
 api.put('/editarUsuario/:idUsuario' , md_autenticacion.Auth , UsuarioController.editarUsuario)
 api.delete('/eliminarUsuario/:idUsuario' , md_autenticacion.Auth , UsuarioController.EliminarUsuario)
 api.put('/agregarCarrito', md_autenticacion.Auth, UsuarioController.agregarCarrito)
+api.get('/obtenerFactura' , md_autenticacion.Auth , UsuarioController.creaFactura )
 
 module.exports = api;
