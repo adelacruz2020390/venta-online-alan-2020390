@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 const app = require('./app');
+const { RegistrarAdmin  } = require('./src/controllers/usuario.controller')
 
 mongoose.Promise = global.Promise;                                                                  //function (){}
 mongoose.connect('mongodb://localhost:27017/VentaOnline', { useNewUrlParser: true, useUnifiedTopology: true }).then(()=>{
@@ -10,3 +11,5 @@ mongoose.connect('mongodb://localhost:27017/VentaOnline', { useNewUrlParser: tru
     })
 
 }).catch(error => console.log(error));
+
+RegistrarAdmin();
